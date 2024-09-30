@@ -86,6 +86,7 @@ Please cite the paper and repository using the following BibTeX entry:
 
 ```bibtex
 @inproceedings{nunes2024ulyssesner,
+  title = "Reconhecimento de Entidades Nomeadas e Vazamento de Dados em Textos Legislativos: Uma Reavaliação da Literatura",
   author = "Nunes, Rafael Oleques  and
       Balreira, Dennis Giovani  and
       Spritzer, Andre Suslik  and
