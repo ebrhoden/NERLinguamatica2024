@@ -51,8 +51,10 @@ The available models are defined in the `main.py` and `main_self_learning.py` fi
 
 ## Additional Resources
 
-- The updated **UlyssesNER-Br** corpus is described in the paper **"Named Entity Recognition and Data Leakage in Legislative Texts: A Literature Reassessment,"** which will be presented at [PROPOR 2024]. The preprint of the paper will be available soon.
-- For more details on the original article, refer to: 
+Aqui está a versão corrigida:
+
+- The updated **UlyssesNER-Br** corpus is described in the paper **"Named Entity Recognition and Data Leakage in Legislative Texts: A Literature Reassessment,"** which is currently under review in the journal **Linguamática**. The preprint of the paper will be available soon.
+-  For more details on the original article, refer to: 
 
 ```bibtex
 @inproceedings{nunes-etal-2024-named,
