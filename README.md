@@ -88,12 +88,12 @@ Please cite the paper and repository using the following BibTeX entry:
 @inproceedings{nunes2024ulyssesner,
   author = "Nunes, Rafael Oleques  and
       Balreira, Dennis Giovani  and
-      Spritzer, Andr{\'e} Suslik  and
+      Spritzer, Andre Suslik  and
       Freitas, Carla Maria Dal Sasso",
   year = {2024},
   pages = {},
   title = {Named Entity Recognition and Data Leakage in Legislative Texts: A Literature Reassessment},
-  url={https://...},
+  url={http://dx.doi.org/10.13140/RG.2.2.25781.69602},
 }
 ```
 
