@@ -88,11 +88,11 @@ for use_crf in [True, False]:
 
     #Cross-validatio
     for fold in range(folds):
-        data_folder = f"labeled/corpus/folds/fold"
-        data_folder_unlabeled = f"unlabeled/corpus.json"
+        data_folder_labeled = f"{data_folder}/labeled/corpus/folds/fold{fold}"
+        data_folder_unlabeled = f"{data_folder}/unlabeled/"
 
         #Making a copy of the training set
-        copy_and_replace(f"{data_folder}/train.txt", f"{data_folder}/train_original.txt")
+        copy_and_replace(f"{data_folder_labeled}/train.csv", f"{data_folder_labeled}/train_original.csv")
         output_dir_list = [technique, corpus_name, architecture_str, metric, f"{folds}folds", f"fold{fold}"]
 
 
@@ -104,16 +104,16 @@ for use_crf in [True, False]:
         selfLearning = SelfLearning(input=input, output=output, 
                                     percent_sampling_random=0.05, percent_sampling_dissimilar=1, 
                                     min_size_random=2000, min_size_dissimilar=1000, 
-                                    labeled_corpus_path=data_folder, unlabeled_corpus_path=data_folder_unlabeled,
+                                    labeled_corpus_path=data_folder_labeled, unlabeled_corpus_path=data_folder_unlabeled,
                                     sentence_embedding_name="sentence-transformers/distiluse-base-multilingual-cased-v1",
                                     model_checkpoint=model_checkpoint, model_name=model_name,
                                     corpus_name=corpus_name,)
         
         selfLearning.set_trainer(max_length, truncation, lr, num_epochs, use_crf, use_rnn, main_evaluation_metric)
         
-        output_dir_list = selfLearning.iterations(data_folder, 100, 1, 0.99, SENTENCE_THRESHOLD, 0.005, 4, FIXED, folds, fold, output_dir_list)
+        output_dir_list = selfLearning.iterations(data_folder_labeled, 100, 1, 0.99, SENTENCE_THRESHOLD, 0.005, 4, FIXED, folds, fold, output_dir_list)
 
         #Save the generate training set and restoring original training set
         generated_corpora_path = create_directory_recursive(".", ["generated_corpora"] + output_dir_list)
-        copy_and_replace(f"{data_folder}/train.txt", f"{generated_corpora_path}/train.txt")
-        copy_and_replace(f"{data_folder}/train_original.txt", f"{data_folder}/train.txt")
+        copy_and_replace(f"{data_folder_labeled}/train.txt", f"{generated_corpora_path}/train.txt")
+        copy_and_replace(f"{data_folder_labeled}/train_original.txt", f"{data_folder_labeled}/train.txt")

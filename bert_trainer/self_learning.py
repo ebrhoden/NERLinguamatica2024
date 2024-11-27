@@ -43,16 +43,10 @@ class SelfLearning:
         self.input = input
         self.output = output
 
-        self.original_labeled_corpus = create_dataframe_from_txt(labeled_corpus_path, file="train.txt")
+        self.original_labeled_corpus = pd.read_csv(f"{labeled_corpus_path}/train.csv")
         self.labeled_corpus = deepcopy(self.original_labeled_corpus)
 
-
-        with open(unlabeled_corpus_path, 'r') as f:
-            unlabeled_data = json.load(f)
-
-        self.unlabeled_corpus = pd.DataFrame(unlabeled_data)
-        self.unlabeled_corpus["id"] = self.unlabeled_corpus.index
-
+        self.unlabeled_corpus = pd.read_csv(f"{unlabeled_corpus_path}/unlabeled_data.csv")
 
         #Remove sentences with one word
         count = self.unlabeled_corpus['sentences'].str.split().str.len()
