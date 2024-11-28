@@ -63,6 +63,9 @@ metric = metric_name
 
 #Technique
 technique = "self-learning_random-dissimilar"
+#technique = "4.1"
+#technique = "4.2"
+#technique = "4.3"
 
 #Number of folds
 folds = 5
@@ -107,7 +110,8 @@ for use_crf in [True, False]:
                                     labeled_corpus_path=data_folder_labeled, unlabeled_corpus_path=data_folder_unlabeled,
                                     sentence_embedding_name="sentence-transformers/distiluse-base-multilingual-cased-v1",
                                     model_checkpoint=model_checkpoint, model_name=model_name,
-                                    corpus_name=corpus_name,)
+                                    corpus_name=corpus_name,
+                                    technique=technique,)
         
         selfLearning.set_trainer(max_length, truncation, lr, num_epochs, use_crf, use_rnn, main_evaluation_metric)
         
