@@ -32,7 +32,8 @@ class SelfLearning:
                  labeled_corpus_path: str, unlabeled_corpus_path: str, 
                  sentence_embedding_name: str,
                  model_checkpoint: str, model_name: str,
-                 corpus_name: str) -> None:
+                 corpus_name: str,
+                 technique: str) -> None:
         
         self.percent_sampling_random = percent_sampling_random
         self.min_size_random = min_size_random
@@ -56,6 +57,7 @@ class SelfLearning:
         self.model_name = model_name
 
         self.corpus_name = corpus_name
+        self.technique = technique
 
     def set_trainer(self, max_length, truncation, lr, num_epochs, use_crf, use_rnn, main_evaluation_metric):
         self.max_length = max_length
@@ -217,8 +219,16 @@ class SelfLearning:
         for plus_seed in range(sample_patience):
             #Getting examples
             print("Sampling...")
-            machine_annotated = sampling.random_dissimilarity(self.labeled_corpus, self.unlabeled_corpus, self.input, SEED+plus_seed, self.percent_sampling_random, self.percent_sampling_dissimilar, self.min_size_random, self.min_size_dissimilar)
 
+            if self.technique == "self-learning_random-dissimilar":
+                machine_annotated = sampling.random_dissimilarity(self.labeled_corpus, self.unlabeled_corpus, self.input, SEED+plus_seed, self.percent_sampling_random, self.percent_sampling_dissimilar, self.min_size_random, self.min_size_dissimilar)
+            elif self.technique == "4.1":
+                machine_annotated = sampling.random_dissimilarity(self.labeled_corpus, self.unlabeled_corpus, self.input, SEED+plus_seed, self.percent_sampling_random, self.percent_sampling_dissimilar, self.min_size_random, self.min_size_dissimilar)
+            elif self.technique == "4.2":
+                machine_annotated = sampling.random_dissimilarity(self.labeled_corpus, self.unlabeled_corpus, self.input, SEED+plus_seed, self.percent_sampling_random, self.percent_sampling_dissimilar, self.min_size_random, self.min_size_dissimilar)
+            elif self.technique == "4.3":
+                machine_annotated = sampling.random_dissimilarity(self.labeled_corpus, self.unlabeled_corpus, self.input, SEED+plus_seed, self.percent_sampling_random, self.percent_sampling_dissimilar, self.min_size_random, self.min_size_dissimilar)
+            
             #Instance model
             pipe = Pipeline(model_checkpoint)
             
@@ -271,6 +281,29 @@ class SelfLearning:
 
         return path
     
+    def create_category_distribution_dictionary(self) -> dict: 
+        all_dataframe_columns = list(self.labeled_corpus.columns)
+        
+        # This is the default for all pre processed corpora
+        non_category_columns = ['sentences', 'tokens', 'ner_tokens', 'lem_sentence', 'stem_sentence', 'id']
+        
+        categories = list(set(all_dataframe_columns) - set(non_category_columns))
+        category_distribution_dict = {}
+
+        for category in categories:
+            category_distribution_dict[category] = self.labeled_corpus[category].sum()
+
+        return category_distribution_dict
+    
+    def create_sample_priority_list(self, category_distribution_dict) -> list:
+        sorted_by_values_asc = dict(sorted(category_distribution_dict.items(), key=lambda item: item[1], reverse=False))
+        categories = list(sorted_by_values_asc.keys())
+
+        if self.technique == "4.2":
+            categories.reverse()
+        
+        return categories
+        
     def save_json(self, root, dir_list, json_object, file_name):
         path = self._create_directory_recursive(root, dir_list)
 
@@ -288,7 +321,12 @@ class SelfLearning:
         best_f1 = 0 #todo
         iteration_f1_without_increase = 0
 
-        sampling = active_sampling(self.sentence_embedding_name)
+        # This is needed for strategies 4.1, 4.2 and 4.3
+        category_distribution_dictionary = self.create_category_distribution_dictionary()
+
+
+        sampling = active_sampling(self.sentence_embedding_name, category_distribution_dictionary)
+
         model_checkpoint = self.model_checkpoint
         
         '''#########################################################################

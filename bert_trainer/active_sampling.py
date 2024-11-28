@@ -3,8 +3,9 @@ from sentence_transformers import SentenceTransformer, util
 from tqdm import tqdm
 
 class active_sampling:
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, category_distribution_dictionary: dict) -> None:
         self.model = self.__set_embedding_model(model_name)
+        self.category_distribution_dictionary = category_distribution_dictionary
 
     def __set_embedding_model(self, model_name: str):
         #if embedding_model_type == SBERT:
@@ -91,3 +92,6 @@ class active_sampling:
         dissimilar = self.dissimilarity(df_target, random, percent_sampling_dissimilar, min_size_dissimilar, input)
 
         return dissimilar
+    
+    
+    
