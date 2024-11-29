@@ -91,7 +91,7 @@ for use_crf in [True, False]:
 
     #Cross-validatio
     for fold in range(folds):
-        data_folder_labeled = f"{data_folder}/labeled/corpus/folds/fold{fold}"
+        data_folder_labeled = f"{data_folder}/labeled/folds/fold{fold}"
         data_folder_unlabeled = f"{data_folder}/unlabeled/"
 
         #Making a copy of the training set

@@ -1,4 +1,5 @@
 import pandas as pd
+from active_sampling_strategies import active_sampling_strategies
 from active_sampling import active_sampling
 
 from flert import Training
@@ -219,16 +220,8 @@ class SelfLearning:
         for plus_seed in range(sample_patience):
             #Getting examples
             print("Sampling...")
+            machine_annotated = sampling.random_dissimilarity(self.labeled_corpus, self.unlabeled_corpus, self.input, SEED+plus_seed, self.percent_sampling_random, self.percent_sampling_dissimilar, self.min_size_random, self.min_size_dissimilar)
 
-            if self.technique == "self-learning_random-dissimilar":
-                machine_annotated = sampling.random_dissimilarity(self.labeled_corpus, self.unlabeled_corpus, self.input, SEED+plus_seed, self.percent_sampling_random, self.percent_sampling_dissimilar, self.min_size_random, self.min_size_dissimilar)
-            elif self.technique == "4.1":
-                machine_annotated = sampling.random_dissimilarity(self.labeled_corpus, self.unlabeled_corpus, self.input, SEED+plus_seed, self.percent_sampling_random, self.percent_sampling_dissimilar, self.min_size_random, self.min_size_dissimilar)
-            elif self.technique == "4.2":
-                machine_annotated = sampling.random_dissimilarity(self.labeled_corpus, self.unlabeled_corpus, self.input, SEED+plus_seed, self.percent_sampling_random, self.percent_sampling_dissimilar, self.min_size_random, self.min_size_dissimilar)
-            elif self.technique == "4.3":
-                machine_annotated = sampling.random_dissimilarity(self.labeled_corpus, self.unlabeled_corpus, self.input, SEED+plus_seed, self.percent_sampling_random, self.percent_sampling_dissimilar, self.min_size_random, self.min_size_dissimilar)
-            
             #Instance model
             pipe = Pipeline(model_checkpoint)
             
@@ -295,7 +288,7 @@ class SelfLearning:
 
         return category_distribution_dict
     
-    def create_sample_priority_list(self, category_distribution_dict) -> list:
+    def create_sampling_priority_list(self, category_distribution_dict) -> list:
         sorted_by_values_asc = dict(sorted(category_distribution_dict.items(), key=lambda item: item[1], reverse=False))
         categories = list(sorted_by_values_asc.keys())
 
@@ -323,9 +316,12 @@ class SelfLearning:
 
         # This is needed for strategies 4.1, 4.2 and 4.3
         category_distribution_dictionary = self.create_category_distribution_dictionary()
+        category_sampling_priority = self.create_sampling_priority_list(category_distribution_dictionary)
 
-
-        sampling = active_sampling(self.sentence_embedding_name, category_distribution_dictionary)
+        if self.technique == "4.1":
+            sampling = active_sampling_strategies(category_distribution_dictionary, category_sampling_priority)
+        else:
+            sampling = active_sampling(self.sentence_embedding_name)
 
         model_checkpoint = self.model_checkpoint
         
