@@ -61,11 +61,19 @@ use_rnn = False
 main_evaluation_metric = metrics[metric_name]
 metric = metric_name
 
-#Technique
+#Technique (receive as sysarg?)
+
 technique = "self-learning_random-dissimilar"
-#technique = "4.1"
-#technique = "4.2"
-#technique = "4.3"
+#technique = "self-learning-random"
+
+#technique = "self_learning_proportional_categories_lem"
+#technique = "self_learning_proportional_categories_stem"
+
+#technique = "self_learning_disproportional_categories_lem"
+#technique = "self_learning_disproportional_categories_stem"
+
+#technique = "self_learning_uniform_categories_lem"
+#technique = "self_learning_uniform_categories_stem"
 
 #Number of folds
 folds = 5
