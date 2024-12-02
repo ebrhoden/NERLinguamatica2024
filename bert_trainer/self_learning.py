@@ -2,10 +2,10 @@ import pandas as pd
 from active_sampling_strategies import active_sampling_strategies
 from active_sampling import active_sampling
 
-from flert import Training
+from huggingface import Training
 #from model import Training
 #from transformers import pipeline
-from flert_pipeline import Pipeline
+from huggingface_pipeline import Pipeline
 
 from configs import SBERT, SEED, SENTENCE_THRESHOLD, TERM_THRESHOLD, HISTOGRAM, LINEAR, FIXED
 from transformers import AutoTokenizer, AutoModelForTokenClassification
