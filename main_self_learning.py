@@ -95,7 +95,7 @@ for use_crf in [True, False]:
         data_folder_unlabeled = f"{data_folder}/unlabeled/"
 
         #Making a copy of the training set
-        copy_and_replace(f"{data_folder_labeled}/train.csv", f"{data_folder_labeled}/train_original.csv")
+        copy_and_replace(f"{data_folder_labeled}/train.json", f"{data_folder_labeled}/train_original.json")
         output_dir_list = [technique, corpus_name, architecture_str, metric, f"{folds}folds", f"fold{fold}"]
 
 
@@ -119,5 +119,5 @@ for use_crf in [True, False]:
 
         #Save the generate training set and restoring original training set
         generated_corpora_path = create_directory_recursive(".", ["generated_corpora"] + output_dir_list)
-        copy_and_replace(f"{data_folder_labeled}/train.txt", f"{generated_corpora_path}/train.txt")
-        copy_and_replace(f"{data_folder_labeled}/train_original.txt", f"{data_folder_labeled}/train.txt")
+        copy_and_replace(f"{data_folder_labeled}/train.json", f"{generated_corpora_path}/train.json")
+        copy_and_replace(f"{data_folder_labeled}/train_original.json", f"{data_folder_labeled}/train.json")
