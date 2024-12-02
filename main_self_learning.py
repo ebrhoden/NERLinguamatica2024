@@ -64,16 +64,16 @@ metric = metric_name
 #Technique (receive as sysarg?)
 
 technique = "self-learning_random-dissimilar"
-#technique = "self-learning-random"
+#technique = "self-learning_random"
 
-#technique = "self_learning_proportional_categories_lem"
-#technique = "self_learning_proportional_categories_stem"
+#technique = "self-learning_proportional-categories-lem"
+#technique = "self-learning_proportional-categories-stem"
 
-#technique = "self_learning_disproportional_categories_lem"
-#technique = "self_learning_disproportional_categories_stem"
+#technique = "self-learning_disproportional-categories-lem"
+#technique = "self-learning_disproportional-categories-stem"
 
-#technique = "self_learning_uniform_categories_lem"
-#technique = "self_learning_uniform_categories_stem"
+#technique = "self-learning_uniform-categories-lem"
+#technique = "self-learning_uniform-categories-stem"
 
 #Number of folds
 folds = 5
