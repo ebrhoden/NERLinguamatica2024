@@ -295,7 +295,7 @@ class SelfLearning:
         sorted_by_values_asc = dict(sorted(category_distribution_dict.items(), key=lambda item: item[1], reverse=False))
         categories = list(sorted_by_values_asc.keys())
 
-        if self.technique == "4.2":
+        if self.technique == "self-learning_disproportional-categories-lem" or self.technique == "self_learning_disproportional-categories-stem":
             categories.reverse()
         
         return categories
@@ -317,11 +317,11 @@ class SelfLearning:
         best_f1 = 0 #todo
         iteration_f1_without_increase = 0
 
-        # This is needed for strategies 4.1, 4.2 and 4.3
+        # This is needed for non random sampling strategies
         category_distribution_dictionary = self.create_category_distribution_dictionary()
         category_sampling_priority = self.create_sampling_priority_list(category_distribution_dictionary)
 
-        if self.technique == "4.1":
+        if self.technique != "self-learning_random-dissimilar" and self.technique != "self-learning_random":
             sampling = active_sampling_strategies(category_distribution_dictionary, category_sampling_priority)
         else:
             sampling = active_sampling(self.sentence_embedding_name)
