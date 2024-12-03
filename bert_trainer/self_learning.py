@@ -52,7 +52,7 @@ class SelfLearning:
         with open(f"{unlabeled_corpus_path}/unlabeled_data.json", 'r', encoding="utf-8") as f:
             unlabeled_data = json.load(f)
         self.unlabeled_corpus = pd.DataFrame(unlabeled_data)
-        self.unlabeled_corpus.set_index('id', inplace=True)
+        self.unlabeled_corpus["id"] = self.unlabeled_corpus.index
 
         #Remove sentences with one word
         count = self.unlabeled_corpus['sentences'].str.split().str.len()
@@ -74,9 +74,10 @@ class SelfLearning:
         self.padding = padding
         self.weight_decay = weight_decay
 
-    def pandas2JSON(self, data_folder, json_object):
+    def overwrite_trainJSON(self, data_folder, json_object):
         with open(f"{data_folder}/train.json", "w", encoding='utf-8') as outfile:
             outfile.write(json_object)
+
 
     def pandas2txt(self, df, data_folder, output_dir_list, start_time):
         #To train (No longer necessary because we are not using flert.py)
@@ -99,7 +100,7 @@ class SelfLearning:
                     print("{} {}".format(txt, tag), file=f_out)
                 print(file=f_out)
 
-        with open(f"{output_dir}/time.txt", "w", encoding="utf-8") as f_out:
+        with open(f"{path}/time.txt", "w", encoding="utf-8") as f_out:
             print("%s seconds" % (time.time() - start_time), file=f_out)
 
     def stop_iterations(self, actual_iteration: int, max_iterations: int, f1_patience: int, iteration_f1_without_increase: int) -> bool:
@@ -239,9 +240,19 @@ class SelfLearning:
                 machine_annotated = sampling.random(self.unlabeled_corpus, SEED+plus_seed, self.sample_fetch_size)
             elif self.technique == "self-learning_proportional-categories-lem":
                 machine_annotated = sampling.sample_proportional_categories_lemmatized(self.labeled_corpus, self.unlabeled_corpus, self.sample_fetch_size)
-            elif self.technique == "self-learning_proportional-categories-stem":
+            elif self.technique == "self-learning_disproportional-categories-stem":
                 machine_annotated = sampling.sample_proportional_categories_stemmed(self.labeled_corpus, self.unlabeled_corpus, self.sample_fetch_size)
-            
+            elif self.technique == "self-learning_disproportional-categories-lem":
+                machine_annotated = sampling.sample_disproportional_categories_lematized(self.labeled_corpus, self.unlabeled_corpus, self.sample_fetch_size)
+            elif self.technique == "self-learning_disproportional-categories-stem":
+                machine_annotated = sampling.sample_disproportional_categories_stemmed(self.labeled_corpus, self.unlabeled_corpus, self.sample_fetch_size)
+            elif self.technique == "self-learning_uniform-categories-lem":
+                machine_annotated = sampling.sample_uniform_categories_lematized(self.labeled_corpus, self.unlabeled_corpus, self.sample_fetch_size)
+            elif self.technique == "self-learning_uniform-categories-stem":
+                machine_annotated = sampling.sample_uniform_categories_stemmed(self.labeled_corpus, self.unlabeled_corpus, self.sample_fetch_size)
+
+            # REMOVER COMENTARIO ABAIXO
+            """
             #Instance model
             pipe = Pipeline(model_checkpoint)
             
@@ -261,11 +272,14 @@ class SelfLearning:
             print("==========> threshold_dynamic:", threshold_dynamic)
 
             predictions = [self.sampling_annotation_instance(entities, score, threshold_dynamic, threshold_level) for entities, score in zip(entities_list, scores)]
-            machine_annotated["ner_tokens"] = predictions
 
+            machine_annotated["ner_tokens"] = predictions
+            """
+
+            machine_annotated["ner_tokens"] = len(machine_annotated) * ['A']
             #Remove instances that only have "O"
             machine_annotated = machine_annotated[machine_annotated['ner_tokens'].apply(lambda x: filter(x))]
-
+            
             #Tokenize sentence
             machine_annotated["tokens"] = [sentence.split(" ") for sentence in machine_annotated["sentences"].values]
 
@@ -303,6 +317,7 @@ class SelfLearning:
         categories = list(set(all_dataframe_columns) - set(non_category_columns))
         category_distribution_dict = {}
 
+
         for category in categories:
             category_distribution_dict[category] = self.labeled_corpus[category].sum()
 
@@ -317,11 +332,14 @@ class SelfLearning:
         
         return categories
         
-    def save_json(self, root, dir_list, json_object, file_name):
+    def save_json_and_time(self, root, dir_list, json_object, file_name, start_time):
         path = self._create_directory_recursive(root, dir_list)
 
         with open("{path}/{file_name}".format(path=path, file_name=file_name), "w", encoding='utf-8') as outfile:
             outfile.write(json_object)
+
+        with open(f"{path}/time.txt", "w", encoding="utf-8") as f_out:
+            print("%s seconds" % (time.time() - start_time), file=f_out)
 
     def iterations(self, data_folder: str, max_iterations: int, sample_patience: int, threshold: float, threshold_level: str, f1_increase: float, f1_patience: int, threshold_function: str, folds, fold, output_dir_list):
         """
@@ -371,19 +389,23 @@ class SelfLearning:
         generated_dir.insert(0, "generated_corpora")
         self.save_json(".", generated_dir, self.labeled_corpus.to_json(orient="records"), "train.json")'''
         #########################################################################
+        
 
         for actual_iteration in range(0, max_iterations):
             start_time = time.time()
             
             print("=======> Iteration {actual_iteration}".format(actual_iteration=actual_iteration))
-            output_dir_list = output_dir_list + [threshold_level, threshold_function, str(threshold), f"random_{self.sample_fetch_size}", str(actual_iteration)]
+            output_dir_list_current = output_dir_list + [threshold_level, threshold_function, str(threshold), f"random_{self.sample_fetch_size}", str(actual_iteration)]
             machine_annotated = pd.DataFrame({self.input: [], self.output: []})
-
+            
+            #REMOVER COMENTARIO ABAIXO
+            """
             #Training model
             print("Training...")
             print("Begin -------->", self.labeled_corpus.columns.values, len(self.labeled_corpus.index), len(self.labeled_corpus.ner_tokens.values))
             #training = Training(data_folder, self.corpus_name, model_checkpoint, self.model_name, max_length, padding, truncation, lr, batch_size, num_epochs, weight_decay, output_dir_list, self.labeled_corpus, model_layer=model_layer)
-            training = Training(data_folder, self.corpus_name, model_checkpoint, self.model_name, output_dir_list)
+            
+            training = Training(data_folder, self.corpus_name, model_checkpoint, self.model_name, output_dir_list_current)
             training.train(self.max_length, self.truncation, self.padding, self.lr, self.num_epochs, self.weight_decay)
             
             print("Saving metrics...")
@@ -405,10 +427,12 @@ class SelfLearning:
                 break
                 
             #Last trained as new checkpoint
-            generated_dir = deepcopy(output_dir_list)
+            generated_dir = deepcopy(output_dir_list_current)
             generated_dir.insert(0, "models")
 
             trained_checkpoint = self._create_directory_recursive(".", generated_dir)
+            """
+            trained_checkpoint = "WHATEVER"
 
             #Labeling
             print("Labeling...")
@@ -425,19 +449,16 @@ class SelfLearning:
             print("Machine annotated -------->", machine_annotated.columns.values, len(machine_annotated.index), len(machine_annotated.ner_tokens.values))
             self.labeled_corpus = pd.concat([self.labeled_corpus, machine_annotated], ignore_index=True)
 
-            #Pandas df to txt to analyse later
-            self.pandas2txt(self.labeled_corpus, data_folder, output_dir_list)
-
             #Overwrite train.json so next training iteration will use labeled data + machine annotated data
-            self.pandas2JSON(data_folder, self.labeled_corpus.to_json(orient="records"))
-
+            #Perguntar!!
+            #self.overwrite_trainJSON(data_folder, self.labeled_corpus.to_json(orient="records"))
             print("Labeled corpus + Machine annotated -------->", self.labeled_corpus.columns.values, len(self.labeled_corpus.index), len(self.labeled_corpus.ner_tokens.values))
-
-            #Saving new training set
-            generated_dir = deepcopy(output_dir_list)
+            
+            #Saving new training set to analyse later
+            generated_dir = deepcopy(output_dir_list_current)
             generated_dir.insert(0, "generated_corpora")
-            self.save_json(".", generated_dir, self.labeled_corpus.to_json(orient="records"), "train.json")
-        
+            self.save_json_and_time(".", generated_dir, self.labeled_corpus.to_json(orient="records"), "train.json", start_time)
+
         print("--- %s seconds ---" % (time.time() - start_time))
 
-        return output_dir_list
+        return output_dir_list_current

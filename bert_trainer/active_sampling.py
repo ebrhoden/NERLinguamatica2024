@@ -1,3 +1,4 @@
+import math
 import pandas as pd
 from sentence_transformers import SentenceTransformer, util
 from tqdm import tqdm
@@ -71,7 +72,8 @@ class active_sampling:
         sorted_indices = sorted(range(len(average_scores)), key=lambda i: average_scores[i])
 
         # Always 0.5 * sample fetch size
-        n_samples = int(percent_sampling_dissimilar * len(df_to_sampling))
+        attempt_fetch_size = int(percent_sampling_dissimilar * len(df_to_sampling))
+        n_samples = self.feasibilize(df_target, attempt_fetch_size)
 
         # Select the top n_samples most dissimilar sentences from df_to_sampling
         selected_indices = sorted_indices[:n_samples]          
@@ -91,7 +93,7 @@ class active_sampling:
     def get_amount_of_entities(self):
         return sum(self.category_distribution_dictionary.values())
     
-    def get_top_BM_matches_by_category_lem(amount_of_retrieved_documents: int, category: str, unlabeled_dataframe: pd.DataFrame, labeled_dataframe: pd.DataFrame) -> list[str]:
+    def _get_top_BM_matches_by_category_lem(self,amount_of_retrieved_documents: int, category: str, unlabeled_dataframe: pd.DataFrame, labeled_dataframe: pd.DataFrame) -> list[str]:
         filtered_dataframe = labeled_dataframe[labeled_dataframe[category] > 0].sort_values(by=[category], ascending=False)
         tokenized_corpus = unlabeled_dataframe['lem_sentence'].str.split(" ")
         
@@ -105,7 +107,7 @@ class active_sampling:
         
         return top_matches_parsed
     
-    def get_top_BM_matches_by_category_stem(amount_of_retrieved_documents: int, category: str, unlabeled_dataframe: pd.DataFrame, labeled_dataframe: pd.DataFrame) -> list[str]:
+    def _get_top_BM_matches_by_category_stem(self, amount_of_retrieved_documents: int, category: str, unlabeled_dataframe: pd.DataFrame, labeled_dataframe: pd.DataFrame) -> list[str]:
         filtered_dataframe = labeled_dataframe[labeled_dataframe[category] > 0].sort_values(by=[category], ascending=False)
         tokenized_corpus = unlabeled_dataframe['stem_sentence'].str.split(" ")
         
@@ -130,19 +132,23 @@ class active_sampling:
         n_samples = self.feasibilize(df_unlabeled_copy, sample_fetch_size)
 
         for category in self.category_sampling_priority:
-            top_matches = self.get_top_BM_matches_by_category_lem(max(1, round(n_samples * self.category_distribution_dictionary.get(category)/amount_of_entities)), category, df_unlabeled_copy, df_target)
 
-            unlabeled_dataframe_copy = unlabeled_dataframe_copy.loc[~unlabeled_dataframe_copy['lem_sentence'].isin(top_matches)]    
-            unlabeled_dataframe_copy = unlabeled_dataframe_copy.reset_index(drop=True)
+            attempt_fetch_size = math.floor(n_samples * self.category_distribution_dictionary.get(category)/amount_of_entities)
+            real_fetch_size = self.feasibilize(df_unlabeled_copy, attempt_fetch_size)
+
+            top_matches = self._get_top_BM_matches_by_category_lem(max(1, real_fetch_size), category, df_unlabeled_copy, df_target)
+
+            df_unlabeled_copy = df_unlabeled_copy.loc[~df_unlabeled_copy['lem_sentence'].isin(top_matches)]    
+            df_unlabeled_copy = df_unlabeled_copy.reset_index(drop=True)
 
             for match in top_matches:
                 final_set_sentences.add(match)
 
-            if len(unlabeled_dataframe_copy) == 0:
+            if len(df_unlabeled_copy) == 0:
                 break
         
         selected_samples_dataframe = df_to_sampling.copy()
-        selected_samples_dataframe = selected_samples_dataframe.loc[unlabeled_dataframe_copy['lem_sentence'].isin(final_set_sentences)]
+        selected_samples_dataframe = selected_samples_dataframe.loc[selected_samples_dataframe['lem_sentence'].isin(final_set_sentences)]
         selected_samples_dataframe = selected_samples_dataframe.reset_index(drop=True)
         return selected_samples_dataframe 
 
@@ -152,24 +158,155 @@ class active_sampling:
         df_unlabeled_copy = df_to_sampling.copy()
         final_set_sentences = set()
         
-        n_samples = self.feasibilize(df_unlabeled_copy, sample_fetch_size)
-        
         amount_of_entities = self.get_amount_of_entities()
 
-        for category in self.category_sampling_priority:
-            top_matches = self.get_top_BM_matches_by_category_stem(max(1, round(n_samples * self.category_distribution_dictionary.get(category)/amount_of_entities)), category, df_unlabeled_copy, df_target)
+        n_samples = self.feasibilize(df_unlabeled_copy, sample_fetch_size)
 
-            unlabeled_dataframe_copy = unlabeled_dataframe_copy.loc[~unlabeled_dataframe_copy['stem_sentence'].isin(top_matches)]    
-            unlabeled_dataframe_copy = unlabeled_dataframe_copy.reset_index(drop=True)
+        for category in self.category_sampling_priority:
+
+            attempt_fetch_size = math.floor(n_samples * self.category_distribution_dictionary.get(category)/amount_of_entities)
+            real_fetch_size = self.feasibilize(df_unlabeled_copy, attempt_fetch_size)
+
+            top_matches = self._get_top_BM_matches_by_category_stem(max(1, real_fetch_size), category, df_unlabeled_copy, df_target)
+
+            df_unlabeled_copy = df_unlabeled_copy.loc[~df_unlabeled_copy['stem_sentence'].isin(top_matches)]    
+            df_unlabeled_copy = df_unlabeled_copy.reset_index(drop=True)
 
             for match in top_matches:
                 final_set_sentences.add(match)
 
-            if len(unlabeled_dataframe_copy) == 0:
+            if len(df_unlabeled_copy) == 0:
                 break
         
         selected_samples_dataframe = df_to_sampling.copy()
-        selected_samples_dataframe = selected_samples_dataframe.loc[unlabeled_dataframe_copy['stem_sentence'].isin(final_set_sentences)]
-        selected_samples_dataframe =selected_samples_dataframe.reset_index(drop=True)
+        selected_samples_dataframe = selected_samples_dataframe.loc[selected_samples_dataframe['stem_sentence'].isin(final_set_sentences)]
+        selected_samples_dataframe = selected_samples_dataframe.reset_index(drop=True)
+        return selected_samples_dataframe 
+    
+    def sample_disproportional_categories_lematized(self, df_target: pd.DataFrame, df_to_sampling: pd.DataFrame, sample_fetch_size: int):
+        print("Disproportional categories lemmatized ...")
+        
+        df_unlabeled_copy = df_to_sampling.copy()
+        final_set_sentences = set()
+        
+        amount_of_entities = self.get_amount_of_entities()
+
+        n_samples = self.feasibilize(df_unlabeled_copy, sample_fetch_size)
+
+        # Category sampling priority already has been reversed during instantiation!
+        for category in self.category_sampling_priority:
+
+            attempt_fetch_size = math.floor(n_samples * self.category_distribution_dictionary.get(category)/amount_of_entities)
+            real_fetch_size = self.feasibilize(df_unlabeled_copy, attempt_fetch_size)
+
+            top_matches = self._get_top_BM_matches_by_category_stem(max(1, real_fetch_size), category, df_unlabeled_copy, df_target)
+
+            df_unlabeled_copy = df_unlabeled_copy.loc[~df_unlabeled_copy['lem_sentence'].isin(top_matches)]    
+            df_unlabeled_copy = df_unlabeled_copy.reset_index(drop=True)
+
+            for match in top_matches:
+                final_set_sentences.add(match)
+
+            if len(df_unlabeled_copy) == 0:
+                break
+        
+        selected_samples_dataframe = df_to_sampling.copy()
+        selected_samples_dataframe = selected_samples_dataframe.loc[selected_samples_dataframe['lem_sentence'].isin(final_set_sentences)]
+        selected_samples_dataframe = selected_samples_dataframe.reset_index(drop=True)
+        return selected_samples_dataframe 
+    
+    def sample_disproportional_categories_stemmed(self, df_target: pd.DataFrame, df_to_sampling: pd.DataFrame, sample_fetch_size: int):
+        print("Disproportional categories stemmed ...")
+        
+        df_unlabeled_copy = df_to_sampling.copy()
+        final_set_sentences = set()
+        
+        amount_of_entities = self.get_amount_of_entities()
+
+        n_samples = self.feasibilize(df_unlabeled_copy, sample_fetch_size)
+
+        # Category sampling priority already has been reversed during instantiation!
+        for category in self.category_sampling_priority:
+
+            attempt_fetch_size = math.floor(n_samples * self.category_distribution_dictionary.get(category)/amount_of_entities)
+            real_fetch_size = self.feasibilize(df_unlabeled_copy, attempt_fetch_size)
+
+            top_matches = self._get_top_BM_matches_by_category_stem(max(1, real_fetch_size), category, df_unlabeled_copy, df_target)
+
+            df_unlabeled_copy = df_unlabeled_copy.loc[~df_unlabeled_copy['stem_sentence'].isin(top_matches)]    
+            df_unlabeled_copy = df_unlabeled_copy.reset_index(drop=True)
+
+            for match in top_matches:
+                final_set_sentences.add(match)
+
+            if len(df_unlabeled_copy) == 0:
+                break
+        
+        selected_samples_dataframe = df_to_sampling.copy()
+        selected_samples_dataframe = selected_samples_dataframe.loc[selected_samples_dataframe['stem_sentence'].isin(final_set_sentences)]
+        selected_samples_dataframe = selected_samples_dataframe.reset_index(drop=True)
+        return selected_samples_dataframe 
+    
+    def sample_uniform_categories_lematized(self, df_target: pd.DataFrame, df_to_sampling: pd.DataFrame, sample_fetch_size: int):
+        print("Uniform categories lemmatized ...")
+        
+        df_unlabeled_copy = df_to_sampling.copy()
+        final_set_sentences = set()
+        
+        amount_of_categories = len(self.category_sampling_priority)
+
+        n_samples = self.feasibilize(df_unlabeled_copy, sample_fetch_size)
+
+        # Category sampling priority order doesnt matter!
+        for category in self.category_sampling_priority:
+            attempt_fetch_size = math.floor(n_samples * 1/amount_of_categories)
+            real_fetch_size = self.feasibilize(df_unlabeled_copy, attempt_fetch_size)
+
+            top_matches = self._get_top_BM_matches_by_category_lem(max(1, real_fetch_size), category, df_unlabeled_copy, df_target)
+
+            df_unlabeled_copy = df_unlabeled_copy.loc[~df_unlabeled_copy['lem_sentence'].isin(top_matches)]    
+            df_unlabeled_copy = df_unlabeled_copy.reset_index(drop=True)
+
+            for match in top_matches:
+                final_set_sentences.add(match)
+
+            if len(df_unlabeled_copy) == 0:
+                break
+        
+        selected_samples_dataframe = df_to_sampling.copy()
+        selected_samples_dataframe = selected_samples_dataframe.loc[selected_samples_dataframe['lem_sentence'].isin(final_set_sentences)]
+        selected_samples_dataframe = selected_samples_dataframe.reset_index(drop=True)
+        return selected_samples_dataframe 
+    
+    def sample_uniform_categories_stemmed(self, df_target: pd.DataFrame, df_to_sampling: pd.DataFrame, sample_fetch_size: int):
+        print("Uniform categories stemmed ...")
+        
+        df_unlabeled_copy = df_to_sampling.copy()
+        final_set_sentences = set()
+        
+        amount_of_categories = len(self.category_sampling_priority)
+
+        n_samples = self.feasibilize(df_unlabeled_copy, sample_fetch_size)
+
+        # Category sampling priority order doesnt matter!
+        for category in self.category_sampling_priority:
+
+            attempt_fetch_size = math.floor(n_samples * 1/amount_of_categories)
+            real_fetch_size = self.feasibilize(df_unlabeled_copy, attempt_fetch_size)
+
+            top_matches = self._get_top_BM_matches_by_category_stem(max(1, real_fetch_size), category, df_unlabeled_copy, df_target)
+
+            df_unlabeled_copy = df_unlabeled_copy.loc[~df_unlabeled_copy['stem_sentence'].isin(top_matches)]    
+            df_unlabeled_copy = df_unlabeled_copy.reset_index(drop=True)
+
+            for match in top_matches:
+                final_set_sentences.add(match)
+
+            if len(df_unlabeled_copy) == 0:
+                break
+        
+        selected_samples_dataframe = df_to_sampling.copy()
+        selected_samples_dataframe = selected_samples_dataframe.loc[selected_samples_dataframe['stem_sentence'].isin(final_set_sentences)]
+        selected_samples_dataframe = selected_samples_dataframe.reset_index(drop=True)
         return selected_samples_dataframe 
     

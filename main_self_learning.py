@@ -69,7 +69,7 @@ metric = metric_name
 
 #Technique (receive as sysarg?)
 
-technique = "self-learning_random-dissimilar"
+#technique = "self-learning_random-dissimilar"
 #technique = "self-learning_random"
 
 #technique = "self-learning_proportional-categories-lem"
@@ -78,7 +78,7 @@ technique = "self-learning_random-dissimilar"
 #technique = "self-learning_disproportional-categories-lem"
 #technique = "self-learning_disproportional-categories-stem"
 
-#technique = "self-learning_uniform-categories-lem"
+technique = "self-learning_uniform-categories-lem"
 #technique = "self-learning_uniform-categories-stem"
 
 #Number of folds
@@ -130,6 +130,6 @@ for fold in range(1):
     output_dir_list = selfLearning.iterations(data_folder_labeled, 100, 1, 0.99, SENTENCE_THRESHOLD, 0.005, 4, FIXED, folds, fold, output_dir_list)
 
     #Save the generate training set and restoring original training set
-    generated_corpora_path = create_directory_recursive(".", ["generated_corpora"] + output_dir_list)
-    copy_and_replace(f"{data_folder_labeled}/train.json", f"{generated_corpora_path}/train.json")
-    copy_and_replace(f"{data_folder_labeled}/train_original.json", f"{data_folder_labeled}/train.json")
+    #generated_corpora_path = create_directory_recursive(".", ["generated_corpora"] + output_dir_list)
+    #copy_and_replace(f"{data_folder_labeled}/train.json", f"{generated_corpora_path}/train.json")
+    #copy_and_replace(f"{data_folder_labeled}/train_original.json", f"{data_folder_labeled}/train.json")
