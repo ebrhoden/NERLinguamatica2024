@@ -1,10 +1,4 @@
-from transformers import (
-    AutoModelForTokenClassification,
-    AutoTokenizer,
-    DataCollatorForTokenClassification,
-    TrainingArguments,
-    Trainer,
-)
+from transformers import AutoModelForTokenClassification,AutoTokenizer,DataCollatorForTokenClassification,TrainingArguments, Trainer
 import evaluate
 import numpy as np
 import pandas as pd
@@ -16,7 +10,6 @@ import json
 
 from copy import deepcopy
 
-from . import AutoModelForTokenClassificationCRF
 
 data_folder = "ulysses"
 
@@ -69,7 +62,7 @@ class Training:
             outfile.write(json_object)
 
     def set_labels(self, data_folder):
-        df_labels = pd.read_json(f"./corpora/{data_folder}/labels.json")
+        df_labels = pd.read_json(f"{data_folder}/labels.json")
         label_list = df_labels.labels.tolist()
         id2label = {idx: label for idx, label in enumerate(label_list)}
         label2id = {label: idx for idx, label in enumerate(label_list)}
@@ -77,9 +70,9 @@ class Training:
         return label_list, id2label, label2id
 
     def set_dataset(self, data_folder, train, test, validation):
-        df_train = pd.read_json(f"./corpora/{data_folder}/{train}")
-        df_test = pd.read_json(f"./corpora/{data_folder}/{test}")
-        df_validation = pd.read_json(f"./corpora/{data_folder}/{validation}")
+        df_train = pd.read_json(f"{data_folder}/{train}")
+        df_test = pd.read_json(f"{data_folder}/{test}")
+        df_validation = pd.read_json(f"{data_folder}/{validation}")
 
         df_train["ner_tokens"] = [[self.label2id[token] for token in ner_tokens] for ner_tokens in df_train["ner_tokens"].values.tolist()]
         df_test["ner_tokens"] = [[self.label2id[token] for token in ner_tokens] for ner_tokens in df_test["ner_tokens"].values.tolist()]
@@ -165,14 +158,8 @@ class Training:
         data_collator = DataCollatorForTokenClassification(tokenizer=self.tokenizer)
 
         #Bert
-        if crf:
-            pretrained_model = AutoModelForTokenClassificationCRF.from_pretrained(
-                self.model_checkpoint, num_labels=len(self.label_list), id2label=self.id2label, label2id=self.label2id
-            )
-        else:
-            pretrained_model = AutoModelForTokenClassification.from_pretrained(
-                self.model_checkpoint, num_labels=len(self.label_list), id2label=self.id2label, label2id=self.label2id
-            )
+        pretrained_model = AutoModelForTokenClassification.from_pretrained(
+            self.model_checkpoint, num_labels=len(self.label_list), id2label=self.id2label, label2id=self.label2id)
 
         #Training
         self._create_directory("logs")
