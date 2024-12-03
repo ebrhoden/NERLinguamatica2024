@@ -1,35 +1,34 @@
 import pandas as pd
 from sentence_transformers import SentenceTransformer, util
 from tqdm import tqdm
+from rank_bm25 import BM25Okapi
 
 class active_sampling:
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, category_distribution_dictionary: dict, category_sampling_priority: list) -> None:
         self.model = self.__set_embedding_model(model_name)
+        self.category_distribution_dictionary = category_distribution_dictionary
+        self.category_sampling_priority = category_sampling_priority
         
     def __set_embedding_model(self, model_name: str):
         #if embedding_model_type == SBERT:
         model = SentenceTransformer(model_name)
         return model
-
-    def feasibilize(self, df: pd.DataFrame, percent_sampling: float, min_size: int) -> int:
+    
+    def feasibilize(self, df: pd.DataFrame, sample_fetch_size: int) -> int:
         """
         :param df: DataFrame to sampling
-        :param percent_sampling: percentage of data to sampling
-        :param min_size: min size of the sample
+        :sample_fetch_size: desired sample fetch size
         :return int: feasible sample size 
         """
 
         df_len = len(df)
 
-        if df_len*percent_sampling < min_size:
-            if min_size > df_len:
-                return df_len
-            else:
-                return min_size
+        if sample_fetch_size > df_len:
+            return df_len
         
-        return int(percent_sampling*df_len)
+        return sample_fetch_size
 
-    def random(self, df_target: pd.DataFrame, seed: int, percent_sampling: float, min_size: int) -> pd.DataFrame:
+    def random(self, df_target: pd.DataFrame, seed: int, sample_fetch_size: int) -> pd.DataFrame:
         """
         :param df: DataFrame to sampling
         :param seed: seed to the random set
@@ -38,22 +37,18 @@ class active_sampling:
         :return pd.DataFrame: DataFrame with the sampling
         """
         print("Random...")
-        if percent_sampling == 1:
-            return df_target
 
-        n_samples = self.feasibilize(df_target, percent_sampling, min_size)
+        n_samples = self.feasibilize(df_target, sample_fetch_size)
         df_sample = df_target.sample(n=n_samples, random_state=seed)
 
         df_sample = df_sample.reset_index(drop=True)
 
         return df_sample
     
-    def dissimilarity(self, df_target: pd.DataFrame, df_to_sampling: pd.DataFrame, percent_sampling: float, min_size: int, input: str) -> pd.DataFrame:
+    
+    def dissimilarity(self, df_target: pd.DataFrame, df_to_sampling: pd.DataFrame, percent_sampling_dissimilar:float, input: str) -> pd.DataFrame:
         if self.model is None:
             return pd.DataFrame()
-        
-        if percent_sampling == 1:
-            return df_to_sampling
         
         print("Dissimilarity...")
         print("\t=>", len(df_to_sampling[input].tolist()))
@@ -75,7 +70,8 @@ class active_sampling:
         # Sort sentences in df_to_sampling by decreasing average similarity score
         sorted_indices = sorted(range(len(average_scores)), key=lambda i: average_scores[i])
 
-        n_samples = self.feasibilize(df_target, percent_sampling, min_size)
+        # Always 0.5 * sample fetch size
+        n_samples = int(percent_sampling_dissimilar * len(df_to_sampling))
 
         # Select the top n_samples most dissimilar sentences from df_to_sampling
         selected_indices = sorted_indices[:n_samples]          
@@ -86,9 +82,94 @@ class active_sampling:
 
         return df_sample
     
-    def random_dissimilarity(self, df_target: pd.DataFrame, df_to_sampling: pd.DataFrame, input: str, seed: int, percent_sampling_random: float, percent_sampling_dissimilar: float, min_size_random: int, min_size_dissimilar: int):
-        random = self.random(df_to_sampling, seed, percent_sampling_random, min_size_random)
-        dissimilar = self.dissimilarity(df_target, random, percent_sampling_dissimilar, min_size_dissimilar, input)
+    def random_dissimilarity(self, df_target: pd.DataFrame, df_to_sampling: pd.DataFrame, input: str, seed: int, percent_sampling_dissimilar: float, sample_fetch_size: int):
+        random = self.random(df_to_sampling, seed, sample_fetch_size)
+        dissimilar = self.dissimilarity(df_target, random, percent_sampling_dissimilar, input)
 
         return dissimilar
+    
+    def get_amount_of_entities(self):
+        return sum(self.category_distribution_dictionary.values())
+    
+    def get_top_BM_matches_by_category_lem(amount_of_retrieved_documents: int, category: str, unlabeled_dataframe: pd.DataFrame, labeled_dataframe: pd.DataFrame) -> list[str]:
+        filtered_dataframe = labeled_dataframe[labeled_dataframe[category] > 0].sort_values(by=[category], ascending=False)
+        tokenized_corpus = unlabeled_dataframe['lem_sentence'].str.split(" ")
+        
+        query = filtered_dataframe['lem_sentence']
+        tokenized_query = query
+        
+        bm25 = BM25Okapi(tokenized_corpus)
+        
+        top_matches = bm25.get_top_n(tokenized_query, tokenized_corpus, amount_of_retrieved_documents)
+        top_matches_parsed = [' '.join(top_match) for top_match in top_matches]
+        
+        return top_matches_parsed
+    
+    def get_top_BM_matches_by_category_stem(amount_of_retrieved_documents: int, category: str, unlabeled_dataframe: pd.DataFrame, labeled_dataframe: pd.DataFrame) -> list[str]:
+        filtered_dataframe = labeled_dataframe[labeled_dataframe[category] > 0].sort_values(by=[category], ascending=False)
+        tokenized_corpus = unlabeled_dataframe['stem_sentence'].str.split(" ")
+        
+        query = filtered_dataframe['stem_sentence']
+        tokenized_query = query
+        
+        bm25 = BM25Okapi(tokenized_corpus)
+        
+        top_matches = bm25.get_top_n(tokenized_query, tokenized_corpus, amount_of_retrieved_documents)
+        top_matches_parsed = [' '.join(top_match) for top_match in top_matches]
+        
+        return top_matches_parsed
+    
+    def sample_proportional_categories_lemmatized(self, df_target: pd.DataFrame, df_to_sampling: pd.DataFrame, sample_fetch_size: int):
+        print("Proportional categories lemmatized ...")
+        
+        df_unlabeled_copy = df_to_sampling.copy()
+        final_set_sentences = set()
+        
+        amount_of_entities = self.get_amount_of_entities()
+
+        n_samples = self.feasibilize(df_unlabeled_copy, sample_fetch_size)
+
+        for category in self.category_sampling_priority:
+            top_matches = self.get_top_BM_matches_by_category_lem(max(1, round(n_samples * self.category_distribution_dictionary.get(category)/amount_of_entities)), category, df_unlabeled_copy, df_target)
+
+            unlabeled_dataframe_copy = unlabeled_dataframe_copy.loc[~unlabeled_dataframe_copy['lem_sentence'].isin(top_matches)]    
+            unlabeled_dataframe_copy = unlabeled_dataframe_copy.reset_index(drop=True)
+
+            for match in top_matches:
+                final_set_sentences.add(match)
+
+            if len(unlabeled_dataframe_copy) == 0:
+                break
+        
+        selected_samples_dataframe = df_to_sampling.copy()
+        selected_samples_dataframe = selected_samples_dataframe.loc[unlabeled_dataframe_copy['lem_sentence'].isin(final_set_sentences)]
+        selected_samples_dataframe = selected_samples_dataframe.reset_index(drop=True)
+        return selected_samples_dataframe 
+
+    def sample_proportional_categories_stemmed(self, df_target: pd.DataFrame, df_to_sampling: pd.DataFrame, sample_fetch_size: int):
+        print("Proportional categories stemmed ...")
+        
+        df_unlabeled_copy = df_to_sampling.copy()
+        final_set_sentences = set()
+        
+        n_samples = self.feasibilize(df_unlabeled_copy, sample_fetch_size)
+        
+        amount_of_entities = self.get_amount_of_entities()
+
+        for category in self.category_sampling_priority:
+            top_matches = self.get_top_BM_matches_by_category_stem(max(1, round(n_samples * self.category_distribution_dictionary.get(category)/amount_of_entities)), category, df_unlabeled_copy, df_target)
+
+            unlabeled_dataframe_copy = unlabeled_dataframe_copy.loc[~unlabeled_dataframe_copy['stem_sentence'].isin(top_matches)]    
+            unlabeled_dataframe_copy = unlabeled_dataframe_copy.reset_index(drop=True)
+
+            for match in top_matches:
+                final_set_sentences.add(match)
+
+            if len(unlabeled_dataframe_copy) == 0:
+                break
+        
+        selected_samples_dataframe = df_to_sampling.copy()
+        selected_samples_dataframe = selected_samples_dataframe.loc[unlabeled_dataframe_copy['stem_sentence'].isin(final_set_sentences)]
+        selected_samples_dataframe =selected_samples_dataframe.reset_index(drop=True)
+        return selected_samples_dataframe 
     
