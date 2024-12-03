@@ -24,13 +24,15 @@ Where:
 To run the **self-learning** process, use the `main_self_learning.py` script with the following command:
 
 ```bash
-python3 main_self_learning.py [MODEL] [CORPUS] [METRIC]
+python3 main_self_learning.py [MODEL] [CORPUS] [METRIC] [FETCH SIZE]
 ```
 
 Where:
 - `[MODEL]` is the model to be trained using the self-learning method.
 - `[CORPUS]` refers to the dataset, which will be available soon.
 - `[METRIC]` is either `micro_avg` or `macro_avg`, depending on the evaluation metric you wish to use.
+- `[FETCH SIZE]` refers to the desired fetch size used for active sampling. Due to approximation the non-random sampling strategies might return a slightly largar number of samples
+
 
 ## K-Folds and Stratified Partitions
 
