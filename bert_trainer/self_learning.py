@@ -1,5 +1,4 @@
 import pandas as pd
-from active_sampling_strategies import active_sampling_strategies
 from active_sampling import active_sampling
 
 from huggingface import Training
@@ -28,29 +27,31 @@ sys.stderr = sys.stdout
 class SelfLearning:
 
     def __init__(self, input: str, output: str, 
-                 percent_sampling_random: float, percent_sampling_dissimilar: float, 
-                 min_size_random: int, min_size_dissimilar: int, 
+                 percent_sampling_dissimilar: float, 
+                 sample_fetch_size: int,
                  labeled_corpus_path: str, unlabeled_corpus_path: str, 
                  sentence_embedding_name: str,
                  model_checkpoint: str, model_name: str,
                  corpus_name: str,
                  technique: str) -> None:
         
-        self.percent_sampling_random = percent_sampling_random
-        self.min_size_random = min_size_random
         self.percent_sampling_dissimilar = percent_sampling_dissimilar
-        self.min_size_dissimilar = min_size_dissimilar
+        self.sample_fetch_size = sample_fetch_size
         self.sentence_embedding_name = sentence_embedding_name
 
         self.input = input
         self.output = output
 
-        self.original_labeled_corpus = pd.read_json(f"{labeled_corpus_path}/train.json")
+        with open(f"{labeled_corpus_path}/train.json", 'r', encoding="utf-8") as f:
+            labeled_data = json.load(f)
+        self.original_labeled_corpus = pd.DataFrame(labeled_data)
         self.original_labeled_corpus.set_index('id', inplace=True)
 
         self.labeled_corpus = deepcopy(self.original_labeled_corpus)
 
-        self.unlabeled_corpus = pd.read_json(f"{unlabeled_corpus_path}/unlabeled_data.json")
+        with open(f"{unlabeled_corpus_path}/unlabeled_data.json", 'r', encoding="utf-8") as f:
+            unlabeled_data = json.load(f)
+        self.unlabeled_corpus = pd.DataFrame(unlabeled_data)
         self.unlabeled_corpus.set_index('id', inplace=True)
 
         #Remove sentences with one word
@@ -63,22 +64,27 @@ class SelfLearning:
         self.corpus_name = corpus_name
         self.technique = technique
 
-    def set_trainer(self, max_length, truncation, lr, num_epochs, use_crf, use_rnn, main_evaluation_metric):
+    def set_trainer(self, max_length, truncation, padding, lr, num_epochs, weight_decay, use_crf, use_rnn):
         self.max_length = max_length
         self.truncation = truncation
         self.lr = lr
         self.num_epochs = num_epochs
         self.use_crf = use_crf
         self.use_rnn = use_rnn
-        self.main_evaluation_metric = main_evaluation_metric
+        self.padding = padding
+        self.weight_decay = weight_decay
 
-    def pandas2txt(self, df, data_folder, output_dir_list):
-        #To train
-        with open(f"{data_folder}/train.txt", "w", encoding="utf-8") as f_out:
-            for _, line in df.iterrows():
-                for txt, tag in zip(line["tokens"], line["ner_tokens"]):
-                    print("{} {}".format(txt, tag), file=f_out)
-                print(file=f_out)
+    def pandas2JSON(self, data_folder, json_object):
+        with open(f"{data_folder}/train.json", "w", encoding='utf-8') as outfile:
+            outfile.write(json_object)
+
+    def pandas2txt(self, df, data_folder, output_dir_list, start_time):
+        #To train (No longer necessary because we are not using flert.py)
+        #with open(f"{data_folder}/train.txt", "w", encoding="utf-8") as f_out:
+        #    for _, line in df.iterrows():
+        #        for txt, tag in zip(line["tokens"], line["ner_tokens"]):
+        #            print("{} {}".format(txt, tag), file=f_out)
+        #        print(file=f_out)
 
         #To analyse
         self._create_directory("generated_corpora")
@@ -92,6 +98,9 @@ class SelfLearning:
                 for txt, tag in zip(line["tokens"], line["ner_tokens"]):
                     print("{} {}".format(txt, tag), file=f_out)
                 print(file=f_out)
+
+        with open(f"{output_dir}/time.txt", "w", encoding="utf-8") as f_out:
+            print("%s seconds" % (time.time() - start_time), file=f_out)
 
     def stop_iterations(self, actual_iteration: int, max_iterations: int, f1_patience: int, iteration_f1_without_increase: int) -> bool:
         """
@@ -223,8 +232,16 @@ class SelfLearning:
         for plus_seed in range(sample_patience):
             #Getting examples
             print("Sampling...")
-            machine_annotated = sampling.random_dissimilarity(self.labeled_corpus, self.unlabeled_corpus, self.input, SEED+plus_seed, self.percent_sampling_random, self.percent_sampling_dissimilar, self.min_size_random, self.min_size_dissimilar)
-
+            
+            if self.technique == "self-learning_random-dissimilar":
+                machine_annotated = sampling.random_dissimilarity(self.labeled_corpus, self.unlabeled_corpus, self.input, SEED+plus_seed, self.percent_sampling_dissimilar, self.sample_fetch_size * 2)
+            elif self.technique == "self-learning_random":
+                machine_annotated = sampling.random(self.unlabeled_corpus, SEED+plus_seed, self.sample_fetch_size)
+            elif self.technique == "self-learning_proportional-categories-lem":
+                machine_annotated = sampling.sample_proportional_categories_lemmatized(self.labeled_corpus, self.unlabeled_corpus, self.sample_fetch_size)
+            elif self.technique == "self-learning_proportional-categories-stem":
+                machine_annotated = sampling.sample_proportional_categories_stemmed(self.labeled_corpus, self.unlabeled_corpus, self.sample_fetch_size)
+            
             #Instance model
             pipe = Pipeline(model_checkpoint)
             
@@ -321,10 +338,7 @@ class SelfLearning:
         category_distribution_dictionary = self.create_category_distribution_dictionary()
         category_sampling_priority = self.create_sampling_priority_list(category_distribution_dictionary)
 
-        if self.technique != "self-learning_random-dissimilar" and self.technique != "self-learning_random":
-            sampling = active_sampling_strategies(category_distribution_dictionary, category_sampling_priority)
-        else:
-            sampling = active_sampling(self.sentence_embedding_name)
+        sampling = active_sampling(self.sentence_embedding_name, category_distribution_dictionary, category_sampling_priority)
 
         model_checkpoint = self.model_checkpoint
         
@@ -359,8 +373,10 @@ class SelfLearning:
         #########################################################################
 
         for actual_iteration in range(0, max_iterations):
+            start_time = time.time()
+            
             print("=======> Iteration {actual_iteration}".format(actual_iteration=actual_iteration))
-            output_dir_list = output_dir_list + [threshold_level, threshold_function, str(threshold), f"random_{self.percent_sampling_random}", str(actual_iteration)]
+            output_dir_list = output_dir_list + [threshold_level, threshold_function, str(threshold), f"random_{self.sample_fetch_size}", str(actual_iteration)]
             machine_annotated = pd.DataFrame({self.input: [], self.output: []})
 
             #Training model
@@ -368,11 +384,11 @@ class SelfLearning:
             print("Begin -------->", self.labeled_corpus.columns.values, len(self.labeled_corpus.index), len(self.labeled_corpus.ner_tokens.values))
             #training = Training(data_folder, self.corpus_name, model_checkpoint, self.model_name, max_length, padding, truncation, lr, batch_size, num_epochs, weight_decay, output_dir_list, self.labeled_corpus, model_layer=model_layer)
             training = Training(data_folder, self.corpus_name, model_checkpoint, self.model_name, output_dir_list)
-            training.train(self.max_length, self.truncation, self.lr, self.num_epochs, self.use_crf, self.use_rnn, self.main_evaluation_metric)
-
+            training.train(self.max_length, self.truncation, self.padding, self.lr, self.num_epochs, self.weight_decay)
+            
             print("Saving metrics...")
             y_probs, metrics = training.get_and_save_metrics_test()
-        
+
             #Getting f1
             if metrics["macro avg"]["f1-score"] - best_f1 > f1_increase:
                 iteration_f1_without_increase = 0
@@ -387,10 +403,11 @@ class SelfLearning:
             #Stop criterium
             if self.stop_iterations(actual_iteration, max_iterations, f1_patience, iteration_f1_without_increase):
                 break
-
+                
             #Last trained as new checkpoint
             generated_dir = deepcopy(output_dir_list)
             generated_dir.insert(0, "models")
+
             trained_checkpoint = self._create_directory_recursive(".", generated_dir)
 
             #Labeling
@@ -408,8 +425,11 @@ class SelfLearning:
             print("Machine annotated -------->", machine_annotated.columns.values, len(machine_annotated.index), len(machine_annotated.ner_tokens.values))
             self.labeled_corpus = pd.concat([self.labeled_corpus, machine_annotated], ignore_index=True)
 
-            #Pandas df to txt
+            #Pandas df to txt to analyse later
             self.pandas2txt(self.labeled_corpus, data_folder, output_dir_list)
+
+            #Overwrite train.json so next training iteration will use labeled data + machine annotated data
+            self.pandas2JSON(data_folder, self.labeled_corpus.to_json(orient="records"))
 
             print("Labeled corpus + Machine annotated -------->", self.labeled_corpus.columns.values, len(self.labeled_corpus.index), len(self.labeled_corpus.ner_tokens.values))
 
