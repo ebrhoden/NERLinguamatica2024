@@ -76,18 +76,6 @@ weight_decay = 0.01
 main_evaluation_metric = metrics[metric_name]
 metric = metric_name
 
-#technique = "self-learning_random-dissimilar"
-#technique = "self-learning_random"
-
-#technique = "self-learning_proportional-categories-lem"
-#technique = "self-learning_proportional-categories-stem"
-
-#technique = "self-learning_disproportional-categories-lem"
-#technique = "self-learning_disproportional-categories-stem"
-
-#technique = "self-learning_uniform-categories-lem"
-#technique = "self-learning_uniform-categories-stem"
-
 #Number of folds
 folds = 5
 
