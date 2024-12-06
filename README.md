@@ -32,14 +32,14 @@ Where:
 - `[CORPUS]` refers to the dataset, which will be available soon.
 - `[METRIC]` is either `micro_avg` or `macro_avg`, depending on the evaluation metric you wish to use.
 - `[TECHNIQUE]` is the name of the technique. It must be one of the following:
-* self-learning_random
-* self-learning_random-dissimilar
-* self-learning_proportional-categories-lem
-* self-learning_proportional-categories-stem
-* self-learning_disproportional-categories-lem
-* self-learning_disproportional-categories-stem
-* self-learning_uniform-categories-lem
-* self-learning_uniform-categories-stem
+* * `self-learning_random`
+* * `self-learning_random-dissimilar`
+* * `self-learning_proportional-categories-lem`
+* * `self-learning_proportional-categories-stem`
+* * `self-learning_disproportional-categories-lem`
+* * `self-learning_disproportional-categories-stem`
+* * `self-learning_uniform-categories-lem`
+* * `self-learning_uniform-categories-stem`
 - `[FETCH SIZE]` refers to the desired fetch size used for active sampling. Due to approximation the non-random sampling strategies might return a slightly largar number of samples
 - `[FOLD]` is the fold number. For the Ulysses dataset we have 5 folds
 
