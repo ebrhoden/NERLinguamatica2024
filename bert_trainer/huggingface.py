@@ -15,7 +15,7 @@ data_folder = "ulysses"
 
 #Training
 model_checkpoint = "neuralmind/bert-base-portuguese-cased"
-model_name = "BERTimbau"
+model_name = "BERTimbau Base"
 lr = 1e-3
 batch_size = 16
 num_epochs = 10
