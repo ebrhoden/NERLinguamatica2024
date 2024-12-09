@@ -1,0 +1,11 @@
+#!/bin/bash
+for fold in 0 1 2 3 4
+do
+    for technique in self-learning_random self-learning_random_dissimilar self-learning_proportional-categories-lem self-learning_proportional-categories-stem self-learning_disproportional-categories-lem self-learning_disproportional-categories-stem self-learning_uniform-categories-lem self-learning_uniform-categories-stem
+    do
+        for fetch_size in 500 1000 1500 2000
+        do
+            pytho main_self_learning.py BERTimbau-base ulysses macro_avg $technique $fetch_size $fold
+        done
+    done
+done
