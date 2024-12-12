@@ -101,7 +101,7 @@ data_folder_unlabeled = f"{data_folder}/unlabeled/"
 
 #Making a copy of the training set
 copy_and_replace(f"{data_folder_labeled}/train.json", f"{data_folder_labeled}/train_original.json")
-output_dir_list = [technique, corpus_name, architecture_str, metric, f"{folds}folds", f"fold{fold}"]
+output_dir_list = [technique, corpus_name, architecture_str, metric, sample_fetch_size, f"{folds}folds", f"fold{fold}"]
 
 print("================================")
 print("Starting training: {architecture}, {model_checkpoint}".format(model_name=model_name, model_checkpoint=model_checkpoint, architecture="-".join(architecture)))
