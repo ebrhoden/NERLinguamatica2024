@@ -20,7 +20,7 @@ metric_name = sys.argv[3]
 # self-learning_uniform-categories-lem, self-learning_uniform-categories-stem
 technique = sys.argv[4]
 
-# 500, 1000, 1500, 2000 
+# 500, 2500, 5000 
 sample_fetch_size = int(sys.argv[5])
 
 # 0, 1, 2, 3, 4
@@ -119,7 +119,7 @@ selfLearning = SelfLearning(input=input, output=output,
 
 selfLearning.set_trainer(max_length, truncation, padding, lr, num_epochs, weight_decay, use_crf, use_rnn)
 
-output_dir_list = selfLearning.iterations(data_folder_labeled, 100, 1, 0.99, SENTENCE_THRESHOLD, 0.005, 4, FIXED, folds, fold, output_dir_list)
+output_dir_list = selfLearning.iterations(data_folder_labeled, 100, 5, 0.99, SENTENCE_THRESHOLD, 0.005, 4, FIXED, folds, fold, output_dir_list)
 
 #Save the generate training set and restoring original training set
 generated_corpora_path = create_directory_recursive(".", ["generated_corpora"] + output_dir_list)
