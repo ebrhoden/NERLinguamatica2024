@@ -4,6 +4,11 @@ import numpy as np
 import pandas as pd
 from datasets import Dataset, DatasetDict
 
+#import evaluate
+from seqeval.metrics import accuracy_score
+from seqeval.metrics import classification_report
+from seqeval.metrics import f1_score
+
 from os import path
 import os, stat
 import json
@@ -32,7 +37,6 @@ class Training:
         self.dataset = self.set_dataset(self.data_folder, train, test, validation)
 
         #Metrics
-        self.seqeval = evaluate.load("seqeval")
 
         #Tokenizer and model
         self.model_checkpoint = model_checkpoint
@@ -102,25 +106,77 @@ class Training:
             for prediction, label in zip(predictions, labels)
         ]
 
-        results = self.seqeval.compute(predictions=true_predictions, references=true_labels)
+        #results = self.seqeval.compute(predictions=true_predictions, references=true_labels)
+        results_conll = classification_report(true_predictions, true_labels, output_dict=True, digits=4)
+        results_conll['accuracy'] = accuracy_score(true_predictions, true_labels)
+
+        results_strict = classification_report(true_predictions, true_labels, output_dict=True, digits=4, mode="strict")
         
-        results_dict =  {
-            "precision": results["overall_precision"],
-            "recall": results["overall_recall"],
-            "f1": results["overall_f1"],
-            "accuracy": results["overall_accuracy"],
+        # Transformação para o formato desejado
+        results_dict = {
+            #conll"
+            "precision_micro_conll": results_conll["micro avg"]["precision"],
+            "recall_micro_conll": results_conll["micro avg"]["recall"],
+            "f1_micro_conll": results_conll["micro avg"]["f1-score"],
+            "support_micro_conll": results_conll["micro avg"]["support"],
+
+            "precision_macro_conll": results_conll["macro avg"]["precision"],
+            "recall_macro_conll": results_conll["macro avg"]["recall"],
+            "f1_macro_conll": results_conll["macro avg"]["f1-score"],
+            "support_macro_conll": results_conll["macro avg"]["support"],
+
+            "precision_weighted_conll": results_conll["weighted avg"]["precision"],
+            "recall_weighted_conll": results_conll["weighted avg"]["recall"],
+            "f1_weighted_conll": results_conll["weighted avg"]["f1-score"],
+            "support_weighted_conll": results_conll["weighted avg"]["support"],
+
+            "accuracy": results_conll["accuracy"],
+
+            #Strict
+            "precision_micro_strict": results_strict["micro avg"]["precision"],
+            "recall_micro_strict": results_strict["micro avg"]["recall"],
+            "f1_micro_strict": results_strict["micro avg"]["f1-score"],
+            "support_micro_strict": results_strict["micro avg"]["support"],
+
+            "precision_macro_strict": results_strict["macro avg"]["precision"],
+            "recall_macro_strict": results_strict["macro avg"]["recall"],
+            "f1_macro_strict": results_strict["macro avg"]["f1-score"],
+            "support_macro_strict": results_strict["macro avg"]["support"],
+
+            "precision_weighted_strict": results_strict["weighted avg"]["precision"],
+            "recall_weighted_strict": results_strict["weighted avg"]["recall"],
+            "f1_weighted_strict": results_strict["weighted avg"]["f1-score"],
+            "support_weighted_strict": results_strict["weighted avg"]["support"],
         }
 
-        keys = list(set([label.replace("B-", "").replace("I-", "") for label in self.label_list if label != "O"]))
+        # Obter as chaves das classes (entidades específicas)
+        keys = [key for key in results_conll.keys() if key not in {"micro avg", "macro avg", "weighted avg"}]
 
-        for key in keys: 
-            results_dict[f"{key}_precision"] = results[key]["precision"]
-            results_dict[f"{key}_recall"] = results[key]["recall"]
-            results_dict[f"{key}_f1"] = results[key]["f1"]
-            results_dict[f"{key}_number"] = results[key]["number"]
+        # Adicionar métricas específicas por classe -> conll
+        for key in keys:
+            # Verificar se o valor é um dicionário (evitar erros)
+            if isinstance(results_conll[key], dict):
+                results_dict[f"{key}_precision_conll"] = results_conll[key]["precision"]
+                results_dict[f"{key}_recall_conll"] = results_conll[key]["recall"]
+                results_dict[f"{key}_f1_conll"] = results_conll[key]["f1-score"]
+                results_dict[f"{key}_support_conll"] = results_conll[key]["support"]
+
+        # Obter as chaves das classes (entidades específicas)
+        keys = [key for key in results_strict.keys() if key not in {"micro avg", "macro avg", "weighted avg"}]
+        # Adicionar métricas específicas por classe -> strict
+        for key in keys:
+            # Verificar se o valor é um dicionário (evitar erros)
+            if isinstance(results_strict[key], dict):
+                results_dict[f"{key}_precision_strict"] = results_strict[key]["precision"]
+                results_dict[f"{key}_recall_strict"] = results_strict[key]["recall"]
+                results_dict[f"{key}_f1_strict"] = results_strict[key]["f1-score"]
+                results_dict[f"{key}_support_strict"] = results_strict[key]["support"]
+
+        # Exibir o resultado final
+        results_dict
             
         return results_dict
-    
+        
     def tokenize_and_align_labels(self, examples):
         tokenized_inputs = self.tokenizer(examples["tokens"], is_split_into_words=True, max_length=self.max_length, padding=self.padding, truncation=self.truncation)
 

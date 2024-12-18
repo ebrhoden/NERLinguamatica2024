@@ -44,7 +44,6 @@ class SelfLearning:
         with open(f"{labeled_corpus_path}/train.json", 'r', encoding="utf-8") as f:
             labeled_data = json.load(f)
         self.original_labeled_corpus = pd.DataFrame(labeled_data)
-        self.original_labeled_corpus.set_index('id', inplace=True)
 
         self.labeled_corpus = deepcopy(self.original_labeled_corpus)
 
@@ -357,7 +356,7 @@ class SelfLearning:
             start_time = time.time()
             
             print("=======> Iteration {actual_iteration}".format(actual_iteration=actual_iteration))
-            output_dir_list_current = output_dir_list + [threshold_level, threshold_function, str(threshold), f"random_{self.sample_fetch_size}", str(actual_iteration)]
+            output_dir_list_current = output_dir_list + [threshold_level, threshold_function, str(threshold), str(actual_iteration)]
             machine_annotated = pd.DataFrame({self.input: [], self.output: []})
             
             #Training model
@@ -372,13 +371,13 @@ class SelfLearning:
             y_probs, metrics = training.get_and_save_metrics_test()
 
             #Getting f1
-            if metrics["macro avg"]["f1-score"] - best_f1 > f1_increase:
+            if metrics["test_f1_macro_conll"] - best_f1 > f1_increase:
                 iteration_f1_without_increase = 0
             else:
                 iteration_f1_without_increase += 1
 
-            if metrics["macro avg"]["f1-score"] > best_f1:
-                best_f1 = metrics["macro avg"]["f1-score"]            
+            if metrics["test_f1_macro_conll"] > best_f1:
+                best_f1 = metrics["test_f1_macro_conll"]            
 
             #break
 
