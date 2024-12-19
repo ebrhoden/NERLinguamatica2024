@@ -1,5 +1,6 @@
 from transformers import pipeline
-from transformers import AutoModelForTokenClassification, AutoTokenizer
+from transformers import AutoTokenizer
+import re
 
 class Pipeline:
     def __init__(self, checkpoint) -> None:
@@ -10,10 +11,15 @@ class Pipeline:
                                aggregation_strategy='simple')  
 
     def get_prediction(self, text):
+
+        def split_words_and_punctuation(sentence):
+            # This pattern matches words (including numbers like 11.343), punctuation, and spaces
+            pattern = r'\w+(?:[\.,]?\w+)*|[^\w\s]'
+            return re.findall(pattern, sentence)
         
         def bio_tagging(sentence, tokens):
             # Tokenize the sentence by spaces
-            words = sentence.split()
+            words = split_words_and_punctuation(sentence)
 
             # Create a list of BIO tags initialized as 'O' (outside any entity)
             bio_tags = ['O'] * len(words)
@@ -29,7 +35,7 @@ class Pipeline:
                 token_str = sentence[start:end]
                 
                 # Split the sentence into words and get the indexes of words that match the token string
-                token_words = token_str.split()
+                token_words = split_words_and_punctuation(token_str)
 
                 # Find the position of the token_words in the sentence
                 index = 0
@@ -71,5 +77,5 @@ class Pipeline:
         print('Esse eh o SCORES')
         print(scores)
         """
-
+        
         return {"entities": bio_tags, "scores": scores}
