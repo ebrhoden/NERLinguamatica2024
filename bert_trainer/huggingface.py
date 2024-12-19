@@ -232,7 +232,7 @@ class Training:
             num_train_epochs=self.num_epochs,
             weight_decay=self.weight_decay,
             evaluation_strategy="epoch",
-            save_strategy="epoch",
+            save_strategy="no",
             load_best_model_at_end=True,
         )
 
